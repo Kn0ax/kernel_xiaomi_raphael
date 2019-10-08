@@ -47,7 +47,7 @@ struct jeita_fv_cfg {
 
 struct dynamic_fv_cfg {
 	char			*prop_name;
-	struct range_data	fv_cfg[MAX_STEP_CHG_ENTRIES];
+	struct range_data		fv_cfg[MAX_STEP_CHG_ENTRIES];
 };
 
 struct step_chg_info {
@@ -82,6 +82,7 @@ struct step_chg_info {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
+	struct votable		*dc_suspend_votable;
 	struct wakeup_source	*step_chg_ws;
 	struct power_supply	*batt_psy;
 	struct power_supply	*bms_psy;
@@ -408,22 +409,22 @@ static void get_config_work(struct work_struct *work)
 	chip->config_is_read = true;
 
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_err("step-chg-cfg: %duV(SoC) ~ %duV(SoC), %duA\n",
+		pr_debug("step-chg-cfg: %duV(SoC) ~ %duV(SoC), %duA\n",
 			chip->step_chg_config->fcc_cfg[i].low_threshold,
 			chip->step_chg_config->fcc_cfg[i].high_threshold,
 			chip->step_chg_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_err("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
+		pr_debug("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
 			chip->jeita_fcc_config->fcc_cfg[i].low_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].high_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_err("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
+		pr_debug("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
 			chip->jeita_fv_config->fv_cfg[i].low_threshold,
 			chip->jeita_fv_config->fv_cfg[i].high_threshold,
 			chip->jeita_fv_config->fv_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("dynamic-fv-cfg: %d(count) ~ %d(coutn), %duV\n",
+		pr_debug("dynamic-fv-cfg: %d(count) ~ %d(count), %duV\n",
 			chip->dynamic_fv_config->fv_cfg[i].low_threshold,
 			chip->dynamic_fv_config->fv_cfg[i].high_threshold,
 			chip->dynamic_fv_config->fv_cfg[i].value);
@@ -443,6 +444,14 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 	int i;
 
 	*new_index = -EINVAL;
+
+	/*
+	 * As battery temperature may be below 0, range.xxx is a unsigned int, but battery
+	 * temperature is a signed int, so cannot compare them when battery temp is below 0,
+	 * we treat it as 0 degree when the parameter threshold(battery temp) is below 0.
+	 */
+	if (threshold < 0)
+		threshold = 0;
 
 	/*
 	 * If the threshold is lesser than the minimum allowed range,
@@ -672,7 +681,7 @@ static int handle_dynamic_fv(struct step_chg_info *chip)
 
 	elapsed_us = ktime_us_delta(ktime_get(), chip->dynamic_fv_last_update_time);
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
-		goto reschedule;
+		return 0;
 
 	rc = power_supply_get_property(chip->bms_psy,
 			POWER_SUPPLY_PROP_CYCLE_COUNT, &pval);
@@ -709,26 +718,24 @@ static int handle_dynamic_fv(struct step_chg_info *chip)
 
 	vote(chip->fv_votable, DYNAMIC_FV_VOTER, true, fv_uv);
 
-	/*set battery full voltage to FLOAT VOLTAGE*/
-	pval.intval = fv_uv;
+	/*set battery full voltage to FLOAT VOLTAGE - 10mV*/
+	pval.intval = fv_uv - 10000;
 	rc = power_supply_set_property(chip->bms_psy,
-		POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
+		POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, &pval);
 	if (rc < 0) {
 		pr_err("Couldn't set CONSTANT VOLTAGE property rc=%d\n", rc);
 		return rc;
 	}
 
-	pr_debug("%s:cycle_count:%d,Batt_full:%d,fv:%d,\n", __func__, cycle_count, pval.intval, fv_uv);
+	pr_debug("%s:cycle_count:%d,Batt_full:%d,fv:%d,\n",
+			__func__, cycle_count, pval.intval, fv_uv);
 
 update_time:
 	chip->dynamic_fv_last_update_time = ktime_get();
 	return 0;
-
-reschedule:
-	/* reschedule 1000uS after the remaining time */
-	return (STEP_CHG_HYSTERISIS_DELAY_US - elapsed_us + 1000);
 }
 
+/* set JEITA_SUSPEND_HYST_UV to 70mV to avoid recharge frequently when jeita warm */
 #define JEITA_SUSPEND_HYST_UV		70000
 static int handle_jeita(struct step_chg_info *chip)
 {
@@ -750,6 +757,8 @@ static int handle_jeita(struct step_chg_info *chip)
 			vote(chip->fv_votable, JEITA_VOTER, false, 0);
 		if (chip->usb_icl_votable)
 			vote(chip->usb_icl_votable, JEITA_VOTER, false, 0);
+		if (chip->dc_suspend_votable)
+			vote(chip->dc_suspend_votable, JEITA_VOTER, 0, 0);
 		return 0;
 	}
 
@@ -806,8 +815,13 @@ static int handle_jeita(struct step_chg_info *chip)
 
 	if (!chip->usb_icl_votable)
 		goto set_jeita_fv;
-	pr_err("%s = %d FCC = %duA FV = %duV\n",
-		chip->jeita_fcc_config->param.prop_name, pval.intval, fcc_ua, fv_uv);
+
+	if (!chip->dc_suspend_votable)
+		chip->dc_suspend_votable = find_votable("DC_SUSPEND");
+
+	if (!chip->dc_suspend_votable)
+		goto set_jeita_fv;
+
 	/*
 	 * If JEITA float voltage is same as max-vfloat of battery then
 	 * skip any further VBAT specific checks.
@@ -816,6 +830,7 @@ static int handle_jeita(struct step_chg_info *chip)
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
 	if (rc || (pval.intval == fv_uv)) {
 		vote(chip->usb_icl_votable, JEITA_VOTER, false, 0);
+		vote(chip->dc_suspend_votable, JEITA_VOTER, 0, 0);
 		goto set_jeita_fv;
 	}
 
@@ -823,14 +838,16 @@ static int handle_jeita(struct step_chg_info *chip)
 	 * Suspend USB input path if battery voltage is above
 	 * JEITA VFLOAT threshold.
 	 */
-	/* if (chip->jeita_arb_en && fv_uv > 0) { */
 	if (fv_uv > 0) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
-		if (!rc && (pval.intval > fv_uv))
+		if (!rc && (pval.intval > fv_uv)) {
 			vote(chip->usb_icl_votable, JEITA_VOTER, true, 0);
-		else if (pval.intval < (fv_uv - JEITA_SUSPEND_HYST_UV))
+			vote(chip->dc_suspend_votable, JEITA_VOTER, 1, 0);
+		} else if (pval.intval < (fv_uv - JEITA_SUSPEND_HYST_UV)) {
 			vote(chip->usb_icl_votable, JEITA_VOTER, false, 0);
+			vote(chip->dc_suspend_votable, JEITA_VOTER, 0, 0);
+		}
 	}
 
 set_jeita_fv:
@@ -1008,7 +1025,6 @@ int qcom_step_chg_init(struct device *dev,
 	chip->jeita_fv_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fv_config->param.prop_name = "BATT_TEMP";
 	chip->jeita_fv_config->param.hysteresis = 5;
-
 	chip->dynamic_fv_config->prop_name = "BATT_CYCLE_COUNT";
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);

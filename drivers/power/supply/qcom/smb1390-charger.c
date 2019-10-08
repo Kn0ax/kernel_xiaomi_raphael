@@ -88,6 +88,7 @@
 #define FCC_VOTER		"FCC_VOTER"
 #define ICL_VOTER		"ICL_VOTER"
 #define TAPER_END_VOTER		"TAPER_END_VOTER"
+#define ICL_CHANGE_VOTER	"ICL_CHANGE_VOTER"
 #define WIRELESS_VOTER		"WIRELESS_VOTER"
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
@@ -343,20 +344,6 @@ static ssize_t stat2_show(struct class *c, struct class_attribute *attr,
 }
 static CLASS_ATTR_RO(stat2);
 
-static ssize_t model_name_show(struct class *c, struct class_attribute *attr,
-			char *buf)
-{
-	struct smb1390 *chip = container_of(c, struct smb1390, cp_class);
-	int rc, val;
-
-	rc = smb1390_read(chip, CORE_STATUS1_REG, &val);
-	if (rc < 0)
-		return snprintf(buf, PAGE_SIZE, "%s\n", "unknown");
-	else
-		return snprintf(buf, PAGE_SIZE, "%s\n", "smb1390");
-}
-static CLASS_ATTR_RO(model_name);
-
 static ssize_t enable_show(struct class *c, struct class_attribute *attr,
 			   char *buf)
 {
@@ -483,7 +470,6 @@ static struct attribute *cp_class_attrs[] = {
 	&class_attr_toggle_switcher.attr,
 	&class_attr_die_temp.attr,
 	&class_attr_isns.attr,
-	&class_attr_model_name.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(cp_class);
@@ -534,7 +520,7 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 	}
 
 	/* ILIM less than 1A is not accurate; disable charging */
-	if (ilim_uA < 1000000) {
+	if (ilim_uA < 900000) {
 		pr_debug("ILIM %duA is too low to allow charging\n", ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
 	} else {
@@ -627,6 +613,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		 */
 		if (pval.intval == POWER_SUPPLY_CP_WIRELESS) {
 			vote(chip->ilim_votable, ICL_VOTER, false, 0);
+			vote(chip->ilim_votable, ICL_CHANGE_VOTER, false, 0);
 			rc = power_supply_get_property(chip->dc_psy,
 					POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 			if (rc < 0)
