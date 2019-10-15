@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,26 +108,6 @@
 		};
 	};
 
-	qnovo_fet_ctrl {
-		qnovo_fet_ctrl_state1: qnovo_fet_ctrl_state1 {
-			pins = "gpio8";
-			function = "normal";
-			input-enable;
-			output-disable;
-			bias-disable;
-			power-source = <0>;
-		};
-
-		qnovo_fet_ctrl_state2: qnovo_fet_ctrl_state2 {
-			pins = "gpio8";
-			function = "normal";
-			input-enable;
-			output-disable;
-			bias-pull-down;
-			power-source = <0>;
-		};
-	};
-
 	otg_vbus_boost {
 		otg_vbus_boost_default: otg_vbus_boost_default {
 			pins = "gpio12";
@@ -147,6 +128,27 @@
 			input-enable;
 		};
 	};
+
+	qnovo_fet_ctrl {
+		qnovo_fet_ctrl_state1: qnovo_fet_ctrl_state1 {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			output-disable;
+			bias-disable;
+			power-source = <0>;
+		};
+
+		qnovo_fet_ctrl_state2: qnovo_fet_ctrl_state2 {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			output-disable;
+			bias-pull-down;
+			power-source = <0>;
+		};
+	};
+
 };
 
 &usb0 {

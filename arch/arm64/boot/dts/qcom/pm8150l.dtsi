@@ -230,7 +230,7 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-				//status = "disabled";
+//				status = "disabled";
 			};
 
 			pm8150l_torch0: qcom,torch_0 {
@@ -355,7 +355,7 @@
 				qcom,ramp-pattern-repeat;
 			};
 
-			lpg2 {
+			pwm_lpg2: lpg2 {
 				qcom,lpg-chan-id = <2>;
 				qcom,ramp-step-ms = <100>;
 				qcom,ramp-pause-hi-count = <2>;
@@ -366,7 +366,7 @@
 				qcom,ramp-pattern-repeat;
 			};
 
-			lpg3 {
+			pwm_lpg3: lpg3 {
 				qcom,lpg-chan-id = <3>;
 				qcom,ramp-step-ms = <100>;
 				qcom,ramp-pause-hi-count = <2>;
@@ -384,7 +384,10 @@
 			reg-names = "lpg-base";
 			#pwm-cells = <2>;
 			qcom,num-lpg-channels = <2>;
+<<<<<<< HEAD
 			status = "disabled";
+=======
+>>>>>>> 9daddcdcd2b1... ARM: dts: msm: add PWM channels for PM8150L
 		};
 
 		pm8150l_rgb_led: qcom,leds@d000 {

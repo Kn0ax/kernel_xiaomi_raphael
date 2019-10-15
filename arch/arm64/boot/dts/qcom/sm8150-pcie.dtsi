@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,11 +150,11 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pcie0_clkreq_default>;
-			//&pcie0_perst_default>;
-			//&pcie0_wake_default>;
+			/* &pcie0_perst_default>; */
+			/*&pcie0_wake_default>;*/
 
-		//perst-gpio = <&tlmm 35 0>;
-		//wake-gpio = <&tlmm 37 0>;
+		/*perst-gpio = <&tlmm 35 0>;*/
+		/*wake-gpio = <&tlmm 37 0>;*/
 
 		gdsc-vdd-supply = <&pcie_0_gdsc>;
 		vreg-1.8-supply = <&pm8150l_l3>;
@@ -238,6 +239,8 @@
 				"pcie_0_phy_reset";
 
 		pcie_rc0: pcie_rc0 {
+			#address-cells = <3>;
+			#size-cells = <2>;
 			reg = <0 0 0 0 0>;
 		};
 	};
@@ -555,6 +558,8 @@
 				"pcie_1_phy_reset";
 
 		pcie_rc1: pcie_rc1 {
+			#address-cells = <3>;
+			#size-cells = <2>;
 			reg = <0 0 0 0 0>;
 		};
 	};

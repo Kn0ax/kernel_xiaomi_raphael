@@ -684,7 +684,6 @@
 		thermal-sensors = <&bcl_soc>;
 		wake-capable-sensor;
 		tracks-low;
-
 		disable-thermal-zone;
 		trips {
 			soc_trip:soc-trip {

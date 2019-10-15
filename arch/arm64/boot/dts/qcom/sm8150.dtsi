@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,9 +58,6 @@
 		mhi_netdev1 = &mhi_netdev_1;
 		mhi_netdev2 = &mhi_netdev_2;
 		mhi_netdev3 = &mhi_netdev_3;
-	};
-
-	aliases {
 		serial0 = &qupv3_se12_2uart;
 		hsuart0 = &qupv3_se13_4uart;
 		spi0 = &qupv3_se3_spi;
@@ -575,10 +573,6 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
-			vbmeta {
-				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
-			};
 			fstab {
 				compatible = "android,fstab";
 				vendor {
@@ -586,7 +580,7 @@
 					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,avb";
+					fsmgr_flags = "wait";
 					status = "ok";
 				};
 			};
@@ -789,6 +783,7 @@
 #include "sm8150-camera.dtsi"
 
 #include "msm-qvr-external.dtsi"
+#include "trusty.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -3676,6 +3671,9 @@
 		reg = <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_base", "smmu_iova_ipa";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		wlan-en-gpio = <&tlmm 169 0>;
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
